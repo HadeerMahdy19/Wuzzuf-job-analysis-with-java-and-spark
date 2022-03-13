@@ -10,7 +10,11 @@ public class jobDAO {
 
     public Dataset<jobPOJO> prepareData() {
         Dataset<Row> rowDataset = getDatasetFromCSV();
-        return cleanData(rowDataset);
+         Dataset<jobPOJO> data = cleanData(rowDataset);
+        //System.out.println("*********************\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n ");
+        //data.show();
+        //System.out.println("*********************\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n ");
+        return data;
     }
 
     private Dataset<Row> getDatasetFromCSV(){
