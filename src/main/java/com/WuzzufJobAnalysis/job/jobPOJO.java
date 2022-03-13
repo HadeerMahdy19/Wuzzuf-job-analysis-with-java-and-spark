@@ -1,8 +1,9 @@
 package com.WuzzufJobAnalysis.job;
 
 import java.util.ArrayList;
+import java.io.Serializable;
 
-public class jobPOJO {
+public class jobPOJO implements Serializable{
     String Title;
     String Company;
     String Location;
@@ -10,18 +11,7 @@ public class jobPOJO {
     String Level;
     String YearsExp;
     String Country;
-    ArrayList<String> Skills;
-
-    public jobPOJO(String title, String company, String location, String type, String level, String yearsExp, String country, ArrayList<String> skills) {
-        Title = title;
-        Company = company;
-        Location = location;
-        Type = type;
-        Level = level;
-        YearsExp = yearsExp;
-        Country = country;
-        Skills = skills;
-    }
+    String Skills;
 
     public String getTitle() {
         return Title;
@@ -79,11 +69,11 @@ public class jobPOJO {
         Country = country;
     }
 
-    public ArrayList<String> getSkills() {
+    public String getSkills() {
         return Skills;
     }
 
-    public void setSkills(ArrayList<String> skills) {
+    public void setSkills(String skills) {
         Skills = skills;
     }
 }
