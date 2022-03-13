@@ -16,8 +16,7 @@ public class jobController {
 
     @RequestMapping("read-csv")
     public ResponseEntity<String> getRowCount() {
-        jobDAO jobDao = new jobDAO();
-        Dataset<jobPOJO> dataset = jobDao.jobData;
+        Dataset<jobPOJO> dataset = new jobDAO().prepareData();
         System.out.println("***********************************************************");
         dataset.show();
         String html = String.format("<h1>%s</h1>", "Running Apache Spark on/with support of Spring boot") +
