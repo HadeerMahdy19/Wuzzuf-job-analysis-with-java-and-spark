@@ -5,15 +5,12 @@ import java.util.ArrayList;
 
 @Component
 public class jobDAO {
-    public Dataset<jobPOJO> jobData;
-    public jobDAO() {
-        jobData = prepareData();
-    }
 
-    private Dataset<jobPOJO> prepareData() {
+    public jobDAO() {}
+
+    public Dataset<jobPOJO> prepareData() {
         Dataset<Row> rowDataset = getDatasetFromCSV();
-        Dataset<jobPOJO> data = cleanData(rowDataset);
-        return data;
+        return cleanData(rowDataset);
     }
 
     private Dataset<Row> getDatasetFromCSV(){
