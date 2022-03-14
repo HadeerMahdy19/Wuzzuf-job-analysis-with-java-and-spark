@@ -1,5 +1,4 @@
 # Dependency Injection of SparkSession: Apache Spark on/with support of Spring boot
-![spark-spring.jpg](spark-spring.jpg)
 * A Web Application of Apache Spark using Spring Boot MVC
 * Spring is a very popular Java-based framework for building web and enterprise applications.
 * Spring framework provides flexibility to configure beans/objects in multiple ways such as XML, Annotations, and JavaConfig.
