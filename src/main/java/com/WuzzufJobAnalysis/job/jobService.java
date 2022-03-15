@@ -21,22 +21,21 @@ public class jobService {
     Dataset<jobPOJO> jobData;
     SparkSession sparkSession;
 
-    public jobService(){
-        jobData = new jobDAO().prepareData();
-        sparkSession=SparkSession.builder().appName("Spark CSV Analysis Demo").master("local[4]").getOrCreate();
+    public jobService() {        jobData = new jobDAO().prepareData();
+        sparkSession = SparkSession.builder().appName("Spark CSV Analysis Demo").master("local[4]").getOrCreate();
     }
 
     // this is a generic method that gets the counts of elements according to a specific feature using sql (group by)
-    public LinkedHashMap<String, Integer> getFeatureValuesCount(String colName){
+    public LinkedHashMap<String, Integer> getFeatureValuesCount(String colName) {
         jobData.createOrReplaceTempView("Jobs");
-        Dataset<Row> sql = sparkSession.sql("select "+colName+ ",CAST(count(*) AS INT) as count from Jobs group by "+colName+" order by count DESC");
+        Dataset<Row> sql = sparkSession.sql("select " + colName + ",CAST(count(*) AS INT) as count from Jobs group by " + colName + " order by count DESC");
         List<String> featureValues = sql.select(colName).as(Encoders.STRING()).collectAsList();
         List<Integer> count = sql.select("count").as(Encoders.INT()).collectAsList();
-        return  createLinkedHashMap(featureValues, count);
+        return createLinkedHashMap(featureValues, count);
     }
 
 
-    public String getMostPopularJobs(){
+    public String getMostPopularJobs() {
         // get a hashmap of title(jobs name) and its count
         LinkedHashMap<String, Integer> mostPopularJobs = getFeatureValuesCount("Title");
 
@@ -45,15 +44,16 @@ public class jobService {
         List<Integer> count = mostPopularJobs.values().stream().limit(10).collect(Collectors.toList());
 
         // create a bar chart for the results we got and save it in resources
-        barChart(titles, count,"MOST_POPULAR_JOBS","jobs");
+        barChart(titles, count, "MOST_POPULAR_JOBS", "jobs");
 
         // present the result in an Html output structure
-        //String imgPath = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\MOST_POPULAR_JOBS.jpg";
-        return getHtml(titles, count, "MOST POPULAR JOBS", "Title");//, imgPath);
+        String imgPath = "\\charts\\MOST_POPULAR_JOBS.jpg";
+        return getHtml(titles, count, "MOST POPULAR JOBS", "Title", imgPath);
 
 
     }
-    public String getMostPopularAreas(){
+
+    public String getMostPopularAreas() {
         // get a hashmap of area (location) and its count
         LinkedHashMap<String, Integer> mostPopularAreas = getFeatureValuesCount("Location");
 
@@ -62,17 +62,18 @@ public class jobService {
         List<Integer> count = mostPopularAreas.values().stream().limit(10).collect(Collectors.toList());
 
         // create a bar chart for the results we got and save it in resources
-        barChart(areas, count,"MOST_POPULAR_AREAS","Areas");
+        barChart(areas, count, "MOST_POPULAR_AREAS", "Areas");
 
         // present the result in an Html output structure
-        //String imgPath = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\MOST_POPULAR_AREAS.jpg";;
-        return getHtml(areas, count, "MOST POPULAR AREAS", "Location");//, imgPath);
+        String imgPath = "\\charts\\MOST_POPULAR_AREAS.jpg";
+        imgPath = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\Jobs Per Company.jpg";
+        return getHtml(areas, count, "MOST POPULAR AREAS", "Location", imgPath);
     }
 
-    public String filterJobsByComp(){
+    public String filterJobsByComp() {
         // create hashmap to contain each company frequency
         HashMap<String, Integer> compFreq = new HashMap<>();
-        for(jobPOJO job : jobData.collectAsList() ) {
+        for (jobPOJO job : jobData.collectAsList()) {
             if (compFreq.containsKey(job.getCompany())) {
                 compFreq.put(job.getCompany(), compFreq.get(job.getCompany()) + 1);
             } else {
@@ -91,23 +92,23 @@ public class jobService {
             companies.add(i);
             counts.add(sortedComp.get(i));
             n++;
-            if (n >= limit){
+            if (n >= limit) {
                 break;
             }
         }
 
         // Visualizing in bar chart
         pieChart(companies, counts, "Jobs Per Company", 10);
-        //String imgPath = "";
+        String imgPath = "";
         // Html output
-        return getHtml(companies, counts, "Jobs Per Company", "Company");//,imgPath);
+        return getHtml(companies, counts, "Jobs Per Company", "Company", imgPath);
     }
 
 
     ////////////////////// ***********  helping methods ******* ///////////////////////////////
 
     // merging the 2 lists of keys and values into one linked hashmap
-    LinkedHashMap<String, Integer> createLinkedHashMap( List<String> colValues,  List<Integer> count){
+    LinkedHashMap<String, Integer> createLinkedHashMap(List<String> colValues, List<Integer> count) {
         LinkedHashMap<String, Integer> lhm = new LinkedHashMap<String, Integer>();
         for (int i = 0; i < colValues.size(); i++) {
             lhm.put(colValues.get(i), count.get(i));
@@ -117,13 +118,12 @@ public class jobService {
 
     public static LinkedHashMap<String, Integer> sortByValue(HashMap<String, Integer> hm) {
         // Create a list from elements of HashMap
-        List<Map.Entry<String, Integer> > list = new LinkedList<Map.Entry<String, Integer> >(hm.entrySet());
+        List<Map.Entry<String, Integer>> list = new LinkedList<Map.Entry<String, Integer>>(hm.entrySet());
 
         // Sort the list
-        Collections.sort(list, new Comparator<Map.Entry<String, Integer> >() {
+        Collections.sort(list, new Comparator<Map.Entry<String, Integer>>() {
             public int compare(Map.Entry<String, Integer> o1,
-                               Map.Entry<String, Integer> o2)
-            {
+                               Map.Entry<String, Integer> o2) {
                 return (o2.getValue()).compareTo(o1.getValue());
             }
         });
@@ -136,7 +136,7 @@ public class jobService {
         return temp;
     }
 
-        ////////////////////****** drawing charts methods ******////////////////////////////
+    ////////////////////****** drawing charts methods ******////////////////////////////
 
     public static void pieChart(List<String> keys, List<Integer> values, String title, int limit) {
         // Create Chart
@@ -150,13 +150,13 @@ public class jobService {
 
         List<Color> sliceColors = new ArrayList<Color>();
         Random objGenerator = new Random();
-        for (int j = 0; j<keys.size() ; j++){
+        for (int j = 0; j < keys.size(); j++) {
             sliceColors.add(new Color(objGenerator.nextInt(255), objGenerator.nextInt(255), objGenerator.nextInt(255)));
         }
         // converting sliceColors to array
-        chart.getStyler ().setSeriesColors (sliceColors.toArray(new Color[sliceColors.size()]));
+        chart.getStyler().setSeriesColors(sliceColors.toArray(new Color[sliceColors.size()]));
 
-        for (int i=0; i<keys.size(); i++){
+        for (int i = 0; i < keys.size(); i++) {
 
             chart.addSeries(keys.get(i), values.get(i));
 
@@ -168,13 +168,14 @@ public class jobService {
         // Save the Visualization as a png
         try {
             String path = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\";
-            BitmapEncoder.saveBitmap(chart,path+title, BitmapEncoder.BitmapFormat.JPG);
+            BitmapEncoder.saveBitmap(chart, path + title, BitmapEncoder.BitmapFormat.JPG);
         } catch (IOException e) {
             System.out.println("NOT Found path");
         }
 
     }
-    public static void barChart(List<String> keys, List<Integer> values, String title, String xlabel){
+
+    public static void barChart(List<String> keys, List<Integer> values, String title, String xlabel) {
         // Create Chart
         CategoryChart chart =
                 new CategoryChartBuilder()
@@ -200,21 +201,20 @@ public class jobService {
         // Save the Visualization as a png
         try {
             String path = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\";
-            BitmapEncoder.saveBitmap(chart,path+title, BitmapEncoder.BitmapFormat.JPG);
+            BitmapEncoder.saveBitmap(chart, path + title, BitmapEncoder.BitmapFormat.JPG);
 //            BitmapEncoder.saveBitmap(chart,System.getProperty("user.dir")+"/Public/"+xlabel, BitmapEncoder.BitmapFormat.PNG);
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             System.out.println("NOT Found path");
         }
     }
 
 
-
     /////////////////////////// ********** html code structure method ****/////////////////////////////////
-    public static String getHtml(List<String> keys, List<Integer> values, String header, String colHeader){ // String path
+    public static String getHtml(List<String> keys, List<Integer> values, String header, String colHeader, String path) {
 //
+        return String.format("<img src=\"%s\">", "/" + path);
 
-        String output = "<html><head>\n"
+       /* String output = "<html><head>\n"
                 + "<style>\n" +
                 "table {\n" +
                 "  border-collapse: collapse;\n" +
@@ -240,7 +240,18 @@ public class jobService {
             output += "<tr><td>"+keys.get(i)+"</td><td>"+values.get(i)+"</td></tr>";
         }
         output += "</table></body>";
-        output+="   <title>Jops Per Company</title>\n" +
+        output+="   <title>Jobs Per Company</title>\n" +
+                "    <body>\n" +
+//                "        <div><\\charts\\MOST_POPULAR_AREAS.jpg\"></div>\n" +
+               // "<div><img src = \"" + path + "\"" + "/></div>"+
+                "<img src = \"try.png\" />"+
+                //"        <div><img src=" + path + "></div>\n" +
+                "    </body>\n" +
+                "</html>";
+        return output;
+    }*/
+      /*  String output = "<html>";
+        output+="   <title>lmage</title>\n" +
                 "        <meta charset=\"UTF-8\">\n" +
                 "        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
                 "        <style>\n" +
@@ -258,10 +269,9 @@ public class jobService {
                 "    </head>\n" +
                 "    <body>\n" +
                 "        <div><img src=\"D:\\java2\\_javaProject\\src\\main\\resources\\charts\\MOST_POPULAR_AREAS.jpg\"></div>\n" +
-                //"        <div><img src=" + path + "></div>\n" +
                 "    </body>\n" +
                 "</html>";
         return output;
+    }*/
     }
-
 }
