@@ -1,17 +1,20 @@
 package com.WuzzufJobAnalysis.job;
 
-import org.apache.spark.sql.*;
+import org.apache.commons.lang.StringUtils;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Encoders;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SparkSession;
+import org.knowm.xchart.*;
+import org.knowm.xchart.style.PieStyler;
+import org.knowm.xchart.style.Styler;
 
 import java.awt.*;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
-
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
-import org.knowm.xchart.*;
-import org.knowm.xchart.style.PieStyler;
-import org.knowm.xchart.style.Styler;
+import java.util.stream.Collectors;
+import java.util.stream.*;
 
 public class jobService {
 
@@ -22,15 +25,9 @@ public class jobService {
         jobData = new jobDAO().prepareData();
         sparkSession=SparkSession.builder().appName("Spark CSV Analysis Demo").master("local[4]").getOrCreate();
     }
-    LinkedHashMap<String, Integer> getAllSkills(){
-        jobData.createOrReplaceTempView("Jobs");
-        Dataset<Row> sql = sparkSession.sql("select "+"Skills"+ ",CAST(count(*) AS INT) as count from Jobs group by "+"Skills"+" order by count DESC");
-        List<String> skillValues = sql.select("Skills").as(Encoders.STRING()).collectAsList();
-        List<Integer> count = sql.select("count").as(Encoders.INT()).collectAsList();
-        return  createLinkedHashMap(skillValues, count);
-    }
-    // change sark version -> in pom file spark sql
-    LinkedHashMap<String, Integer> getFeatureValuesCount(String colName){
+
+    // this is a generic method that gets the counts of elements according to a specific feature using sql (group by)
+    public LinkedHashMap<String, Integer> getFeatureValuesCount(String colName){
         jobData.createOrReplaceTempView("Jobs");
         Dataset<Row> sql = sparkSession.sql("select "+colName+ ",CAST(count(*) AS INT) as count from Jobs group by "+colName+" order by count DESC");
         List<String> featureValues = sql.select(colName).as(Encoders.STRING()).collectAsList();
@@ -38,18 +35,89 @@ public class jobService {
         return  createLinkedHashMap(featureValues, count);
     }
 
+
+    public String getMostPopularJobs(){
+        // get a hashmap of title(jobs name) and its count
+        LinkedHashMap<String, Integer> mostPopularJobs = getFeatureValuesCount("Title");
+
+        //split the hashmap into 2 lists using stream and get the first 10 elements
+        List<String> titles = mostPopularJobs.keySet().stream().limit(10).collect(Collectors.toList());
+        List<Integer> count = mostPopularJobs.values().stream().limit(10).collect(Collectors.toList());
+
+        // create a bar chart for the results we got and save it in resources
+        barChart(titles, count,"MOST_POPULAR_JOBS","jobs");
+
+        // present the result in an Html output structure
+        //String imgPath = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\MOST_POPULAR_JOBS.jpg";
+        return getHtml(titles, count, "MOST POPULAR JOBS", "Title");//, imgPath);
+
+
+    }
+    public String getMostPopularAreas(){
+        // get a hashmap of area (location) and its count
+        LinkedHashMap<String, Integer> mostPopularAreas = getFeatureValuesCount("Location");
+
+        //split the hashmap into 2 lists using stream and get the first 10 elements
+        List<String> areas = mostPopularAreas.keySet().stream().limit(10).collect(Collectors.toList());
+        List<Integer> count = mostPopularAreas.values().stream().limit(10).collect(Collectors.toList());
+
+        // create a bar chart for the results we got and save it in resources
+        barChart(areas, count,"MOST_POPULAR_AREAS","Areas");
+
+        // present the result in an Html output structure
+        //String imgPath = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\MOST_POPULAR_AREAS.jpg";;
+        return getHtml(areas, count, "MOST POPULAR AREAS", "Location");//, imgPath);
+    }
+
+    public String filterJobsByComp(){
+        // create hashmap to contain each company frequency
+        HashMap<String, Integer> compFreq = new HashMap<>();
+        for(jobPOJO job : jobData.collectAsList() ) {
+            if (compFreq.containsKey(job.getCompany())) {
+                compFreq.put(job.getCompany(), compFreq.get(job.getCompany()) + 1);
+            } else {
+                compFreq.put(job.getCompany(), 1);
+            }
+        }
+        // Sorting to get high frequency company at the beginning
+        LinkedHashMap<String, Integer> sortedComp = sortByValue(compFreq);
+
+        int limit = 15;
+        List<String> companies = new ArrayList<>();
+        List<Integer> counts = new ArrayList<>();
+
+        short n = 0;
+        for (String i : sortedComp.keySet()) {
+            companies.add(i);
+            counts.add(sortedComp.get(i));
+            n++;
+            if (n >= limit){
+                break;
+            }
+        }
+
+        // Visualizing in bar chart
+        pieChart(companies, counts, "Jobs Per Company", 10);
+        //String imgPath = "";
+        // Html output
+        return getHtml(companies, counts, "Jobs Per Company", "Company");//,imgPath);
+    }
+
+
+    ////////////////////// ***********  helping methods ******* ///////////////////////////////
+
+    // merging the 2 lists of keys and values into one linked hashmap
     LinkedHashMap<String, Integer> createLinkedHashMap( List<String> colValues,  List<Integer> count){
         LinkedHashMap<String, Integer> lhm = new LinkedHashMap<String, Integer>();
         for (int i = 0; i < colValues.size(); i++) {
-                lhm.put(colValues.get(i), count.get(i));
+            lhm.put(colValues.get(i), count.get(i));
         }
         return lhm;
     }
 
     public static LinkedHashMap<String, Integer> sortByValue(HashMap<String, Integer> hm) {
         // Create a list from elements of HashMap
-        List<Map.Entry<String, Integer> > list =
-                new LinkedList<Map.Entry<String, Integer> >(hm.entrySet());
+        List<Map.Entry<String, Integer> > list = new LinkedList<Map.Entry<String, Integer> >(hm.entrySet());
 
         // Sort the list
         Collections.sort(list, new Comparator<Map.Entry<String, Integer> >() {
@@ -60,13 +128,16 @@ public class jobService {
             }
         });
 
-        // put data from sorted list to hashmap
+        // put data from sorted list to linked hashmap
         LinkedHashMap<String, Integer> temp = new LinkedHashMap<String, Integer>();
         for (Map.Entry<String, Integer> aa : list) {
             temp.put(aa.getKey(), aa.getValue());
         }
         return temp;
     }
+
+        ////////////////////****** drawing charts methods ******////////////////////////////
+
     public static void pieChart(List<String> keys, List<Integer> values, String title, int limit) {
         // Create Chart
         PieChart chart = new PieChartBuilder().width(800).height(600).title(title).build();
@@ -85,8 +156,6 @@ public class jobService {
         // converting sliceColors to array
         chart.getStyler ().setSeriesColors (sliceColors.toArray(new Color[sliceColors.size()]));
 
-
-
         for (int i=0; i<keys.size(); i++){
 
             chart.addSeries(keys.get(i), values.get(i));
@@ -98,10 +167,10 @@ public class jobService {
 
         // Save the Visualization as a png
         try {
-            String path="G:\\iti\\JavaProjectSRC\\";
+            String path = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\";
             BitmapEncoder.saveBitmap(chart,path+title, BitmapEncoder.BitmapFormat.JPG);
         } catch (IOException e) {
-            System.out.println(e);
+            System.out.println("NOT Found path");
         }
 
     }
@@ -130,7 +199,7 @@ public class jobService {
 
         // Save the Visualization as a png
         try {
-            String path="G:\\iti\\JavaProjectSRC\\";
+            String path = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\";
             BitmapEncoder.saveBitmap(chart,path+title, BitmapEncoder.BitmapFormat.JPG);
 //            BitmapEncoder.saveBitmap(chart,System.getProperty("user.dir")+"/Public/"+xlabel, BitmapEncoder.BitmapFormat.PNG);
         }
@@ -139,7 +208,10 @@ public class jobService {
         }
     }
 
-    public static String getHtml(List<String> keys, List<Integer> values, String header, String colHeader){
+
+
+    /////////////////////////// ********** html code structure method ****/////////////////////////////////
+    public static String getHtml(List<String> keys, List<Integer> values, String header, String colHeader){ // String path
 //
 
         String output = "<html><head>\n"
@@ -185,154 +257,11 @@ public class jobService {
                 "        </style>\n" +
                 "    </head>\n" +
                 "    <body>\n" +
-                "        <picture><img src=\"G:\\iti\\JavaProjectSRC\\Most Popular Area.jpg\"/></picture>\n" +
+                "        <div><img src=\"D:\\java2\\_javaProject\\src\\main\\resources\\charts\\MOST_POPULAR_AREAS.jpg\"></div>\n" +
+                //"        <div><img src=" + path + "></div>\n" +
                 "    </body>\n" +
                 "</html>";
         return output;
     }
 
-
-
-
-    public String filterJobsByComp(){
-        // create hashmap to contain each company frequency
-        HashMap<String, Integer> compFreq = new HashMap<>();
-        for(jobPOJO job : jobData.collectAsList() ) {
-            if (compFreq.containsKey(job.getCompany())) {
-                compFreq.put(job.getCompany(), compFreq.get(job.getCompany()) + 1);
-            } else {
-                compFreq.put(job.getCompany(), 1);
-            }
-        }
-        // Sorting to get high frequency company at the beginning
-        LinkedHashMap<String, Integer> sortedComp = sortByValue(compFreq);
-
-        int limit = 15;
-        List<String> companies = new ArrayList<>();
-        List<Integer> counts = new ArrayList<>();
-
-        short n = 0;
-        for (String i : sortedComp.keySet()) {
-            companies.add(i);
-            counts.add(sortedComp.get(i));
-            n++;
-            if (n >= limit){
-                break;
-            }
-        }
-
-        // Visualizing in bar chart
-        pieChart(companies, counts, "Jops Per Company", 10);
-
-        // Html output
-        return getHtml(companies, counts, "Jops Per Company", "Company");
-    }
-    public String filterJobsByTitle(){
-        // create hashmap to contain each title frequency
-        HashMap<String, Integer> titleFreq = new HashMap<>();
-        for(jobPOJO job : jobData.collectAsList()){
-            if (titleFreq.containsKey(job.getTitle())){
-                titleFreq.put(job.getTitle(), titleFreq.get(job.getTitle()) + 1);
-            }
-            else{
-                titleFreq.put(job.getTitle(), 1);
-            }
-        }
-        // Sorting to get high frequency titles at the beginning
-        LinkedHashMap<String, Integer> sortedTitles = sortByValue(titleFreq);
-
-        // Visualizing in bar chart
-        int limit = 15 ;
-        List<String> titles = new ArrayList<>();
-        List<Integer> counts = new ArrayList<>();
-
-        short n = 0;
-        for (String i : sortedTitles.keySet()) {
-            titles.add(i);
-            counts.add(sortedTitles.get(i));
-            n++;
-            if (n >= limit){
-                break;
-            }
-        }
-        barChart(titles, counts, "Most Popular Titles", "Titles");
-
-        // Html output
-        return getHtml(titles, counts, "Most Popular Titles", "Title");
-    }
-    public String filterJobsByArea(){
-        // create hashmap to contain each Area frequency
-        HashMap<String, Integer> areaFreq = new HashMap<>();
-        for(jobPOJO job : jobData.collectAsList()){
-            if (areaFreq.containsKey(job.getLocation())){
-                areaFreq.put(job.getLocation(), areaFreq.get(job.getLocation()) + 1);
-            }
-            else{
-                areaFreq.put(job.getLocation(), 1);
-            }
-        }
-
-        // Sorting to get high frequency Areas at the beginning
-        LinkedHashMap<String, Integer> sortedArea = sortByValue(areaFreq);
-
-        // Visualizing in bar chart
-        int limit = 15 ;
-        List<String> areas = new ArrayList<>();
-        List<Integer> counts = new ArrayList<>();
-
-        short n = 0;
-        for (String i : sortedArea.keySet()) {
-            areas.add(i);
-            counts.add(sortedArea.get(i));
-            n++;
-            if (n >= limit){
-                break;
-            }
-        }
-        barChart(areas, counts, "Most Popular Area", "Area");
-
-        // Html output
-        return getHtml(areas, counts, "Most Popular Area", "Area");
-    }
-//    public String filterJobsBySkills() {
-//        List<String[]> jobSkills = new ArrayList<>();
-//        for (jobPOJO job : jobData.collectAsList()) {
-//            jobSkills.add(job.getSkills());
-//        }
-//
-//        // create hashmap to contain how many each skill has repeated:
-//        HashMap<String, Integer> skillsFreq = new HashMap<>();
-//        for (String[] skill : jobSkills) {
-//            for (String x : skill) {
-//                x = x.trim().replace("[", "").replace("]", "");
-//                if (skillsFreq.containsKey(x)) {
-//                    skillsFreq.put(x, skillsFreq.get(x) + 1);
-//                } else {
-//                    skillsFreq.put(x, 1);
-//                }
-//            }
-//        }
-//
-//        // Sorting to get most frequent Skills at the beginning
-//        LinkedHashMap<String, Integer> sortedSkills = sortByValue(skillsFreq);
-//
-//        // Visualizing in bar chart
-//        int limit = 15;
-//        List<String> skills = new ArrayList<>();
-//        List<Integer> counts = new ArrayList<>();
-//
-//        short n = 0;
-//        for (String i : sortedSkills.keySet()) {
-//            skills.add(i);
-//            counts.add(sortedSkills.get(i));
-//            n++;
-//            if (n >= limit) {
-//                break;
-//            }
-//        }
-//        barChart(skills, counts, "Most Popular Skills", "Skills");
-//
-//        // Html output
-//        return getHtml(skills, counts, "Most Popular Skills", "Skill");
-//    }
 }

@@ -24,7 +24,7 @@ public class jobController {
         //System.out.println(lhm);
         //System.out.println("*********************\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n ");
         Dataset<jobPOJO> dataset = new jobDAO().prepareData();
-       // System.out.println("***********************************************************");
+        // System.out.println("***********************************************************");
         //dataset.show();
         /*String html = String.format("<h1>%s</h1>", "Running Apache Spark on/with support of Spring boot") +
                 String.format("<h3>%s</h3>", "Read csv..") +
@@ -34,7 +34,7 @@ public class jobController {
         return ResponseEntity.ok(html);*/
 //        String html = new jobService().filterJobsByComp();
 //        String html = new jobService().filterJobsByTitle();
-          String html = new jobService().filterJobsByArea();
+        String html = new jobService().getMostPopularAreas();
 
        /*String.format("<h1>%s</h1>", "Running Apache Spark on/with support of Spring boot") +
                 String.format("<h3>%s</h3>", "Read csv..") +
