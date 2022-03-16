@@ -1,7 +1,4 @@
 package com.WuzzufJobAnalysis.job;
-
-import com.WuzzufJobAnalysis.dataAnalysis.WuzzufPOJO;
-import org.apache.commons.lang.StringUtils;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
@@ -17,7 +14,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.*;
+
 
 public class jobService {
 
@@ -406,5 +403,4 @@ public class jobService {
                 "</html>";
         return output;
     }
-
 }
