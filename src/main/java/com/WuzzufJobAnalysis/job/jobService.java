@@ -1,5 +1,6 @@
 package com.WuzzufJobAnalysis.job;
 
+import com.WuzzufJobAnalysis.dataAnalysis.WuzzufPOJO;
 import org.apache.commons.lang.StringUtils;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
@@ -9,6 +10,8 @@ import org.knowm.xchart.*;
 import org.knowm.xchart.style.PieStyler;
 import org.knowm.xchart.style.Styler;
 
+import java.io.File;
+import java.util.Map.Entry;
 import java.awt.*;
 import java.io.IOException;
 import java.util.*;
@@ -20,8 +23,9 @@ public class jobService {
 
     Dataset<jobPOJO> jobData;
     SparkSession sparkSession;
-
+    Dataset<jobPOJO> df ;
     public jobService(){
+
         jobData = new jobDAO().prepareData();
         sparkSession=SparkSession.builder().appName("Spark CSV Analysis Demo").master("local[4]").getOrCreate();
     }
@@ -34,6 +38,64 @@ public class jobService {
         List<Integer> count = sql.select("count").as(Encoders.INT()).collectAsList();
         return  createLinkedHashMap(featureValues, count);
     }
+    public String getMostskills() {
+        List<String> allSkills = jobData.select("Skills").as(Encoders.STRING()).collectAsList();
+        List<String> skills = new ArrayList<>();
+        for (String ls : allSkills) {
+            String[] x = ls.split(",");
+            for (String s : x) {
+                skills.add(s);
+            }
+        }
+        //
+//        List<Entry<String, Integer>> list = new ArrayLis
+//        t<>(skill_counts.entrySet());
+//        list.sort(Entry.comparingByValue());
+
+        Map<String, Long> skill_counts =
+                skills.stream().collect(Collectors.groupingBy(e -> e, Collectors.counting()));
+        // sorting
+        Map<String, Long> sorted_result = skill_counts.entrySet().stream()
+                .sorted(Entry.comparingByValue(Comparator.reverseOrder()))
+                .collect(Collectors.toMap(
+                        Entry::getKey, Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+
+        List<String> skill = new ArrayList<>();
+        List<Long> counts = new ArrayList<>();
+        short n = 0;
+        short limit = 15 ;
+        for (Map.Entry<String, Long> m : sorted_result.entrySet()) {
+            skill.add(m.getKey());
+            counts.add(m.getValue());
+            n++;
+            if (n >= limit){
+                break;
+            }
+        }
+
+        List<Integer> int_counts =counts.stream()
+                .mapToInt(Long::intValue)
+                .boxed().collect(Collectors.toList());
+
+        pieChart(skill, int_counts, "Most Wanted Skills", 10);
+        //String imgPath = "";
+        // Html output
+        return getHtml(skill, int_counts, "Most Wanted Skills", "Skills");//,imgPath);
+    }
+    // >>>> Getting the Skills and counting it and sort according to the most repeated
+//    public List<Map.Entry<String, Long>> getMostSkills(){
+
+//
+//        Map<String, Long> skills = jobData.select("Skills").as(Encoders.STRING()).filter(StringUtils::isNotBlank)
+//                .flatMap(s -> Arrays.asList(s.toLowerCase()
+//                        .trim()
+//                        .split(",")).iterator(), Encoders.STRING()).collectAsList().stream()
+//                .collect(Collectors.groupingBy(s -> s, Collectors.counting()));
+//
+//        List<Map.Entry<String, Long>> sorted = skills.entrySet().stream()
+//                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder())).collect(Collectors.toList());
+//        return sorted;
+//    }
 
 
     public String getMostPopularJobs(){
@@ -44,6 +106,11 @@ public class jobService {
         List<String> titles = mostPopularJobs.keySet().stream().limit(10).collect(Collectors.toList());
         List<Integer> count = mostPopularJobs.values().stream().limit(10).collect(Collectors.toList());
 
+
+        String path = "\\MOST_POPULAR_JOBS.jpg";
+        File file = new File(path);
+        if(!file.exists())
+            barChart(titles, count, "MOST_POPULAR_JOBS", "jobs");
         // create a bar chart for the results we got and save it in resources
         barChart(titles, count,"MOST_POPULAR_JOBS","jobs");
 
@@ -102,8 +169,50 @@ public class jobService {
         // Html output
         return getHtml(companies, counts, "Jobs Per Company", "Company");//,imgPath);
     }
+    String getSchema(){
+        String schema = jobData.schema().toDDL();
+        String cols[] = schema.split(",");
+        String[] columnsName = new String[cols.length];
+        String[] columnstype = new String[cols.length];
 
+        for (int i =0; i< cols.length;i++){
+            String spliter[] =cols[i].split(" ");
+            columnsName[i] = spliter[0];
+            columnstype[i] = spliter[1];
+        }
+        return getHtmlMetada(columnsName, columnstype, "Schema", "Column name", "Column type");
+    }
+    public static String getHtmlMetada(String[] keys, String[] values, String header, String colHeader,String outputHeader) {
 
+        String output = "<html><head>\n"
+                + "<style>\n" +
+                "table {\n" +
+                "  border-collapse: collapse;\n" +
+                "  width: 25%;\n" +
+                "}\n" +
+                "\n" +
+                "th, td {\n" +
+                "  text-align: left;\n" +
+                "  padding: 8px;\n" +
+                "}\n" +
+                "\n" +
+                "tr:nth-child(even){background-color: #f2f2f2}\n" +
+                "\n" +
+                "th {\n" +
+                "  background-color: #008080;\n" +
+                "  color: white;\n" +
+                "}\n" +
+                "</style>\n" +
+                "</head><body>";
+        output += "<h1>"+header+"</h1><table>";
+
+        output += "<tr><th>"+colHeader+"</th><th>" + outputHeader + "</th></tr>";
+        for (int i=0; i<keys.length; i++){
+            output += "<tr><td>"+keys[i]+"</td><td>"+values[i]+"</td></tr>";
+        }
+        output += "</table></body></html>";
+        return output;
+    }
     ////////////////////// ***********  helping methods ******* ///////////////////////////////
 
     // merging the 2 lists of keys and values into one linked hashmap
@@ -134,6 +243,40 @@ public class jobService {
             temp.put(aa.getKey(), aa.getValue());
         }
         return temp;
+    }
+    String getDatasetHead(){
+        String data = jobData.showString(20, 20, true);
+        return getHtmlDatasetHead(data, "Dataset");
+    }
+    public String getHtmlDatasetHead(String data, String header) {
+        String output = "<html><head>\n"
+                + "<style>\n" +
+                "table {\n" +
+                "  border-collapse: collapse;\n" +
+                "  width: 25%;\n" +
+                "}\n" +
+                "\n" +
+                "th, td {\n" +
+                "  text-align: left;\n" +
+                "  padding: 8px;\n" +
+                "}\n" +
+                "\n" +
+                "tr:nth-child(even){background-color: #f2f2f2}\n" +
+                "\n" +
+                "th {\n" +
+                "  background-color: #008080;\n" +
+                "  color: white;\n" +
+                "}\n" +
+                "</style>\n" +
+                "</head><body>";
+        output += "<h1>"+header+"</h1><table>";
+        String rows[] = data.split("-RECORD");
+
+        for (int i=0; i < rows.length; i++){
+            output += "<tr><td>"+ rows[i] + "</td></tr>";
+        }
+        output += "</table></body></html>";
+        return output;
     }
 
         ////////////////////****** drawing charts methods ******////////////////////////////
@@ -167,7 +310,7 @@ public class jobService {
 
         // Save the Visualization as a png
         try {
-            String path = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\";
+            String path = "G:\\iti\\JAVA 4 ML\\java-project\\src\\main\\resources\\";
             BitmapEncoder.saveBitmap(chart,path+title, BitmapEncoder.BitmapFormat.JPG);
         } catch (IOException e) {
             System.out.println("NOT Found path");
@@ -199,7 +342,7 @@ public class jobService {
 
         // Save the Visualization as a png
         try {
-            String path = "D:\\java2\\_javaProject\\src\\main\\resources\\charts\\";
+            String path = "G:\\iti\\JAVA 4 ML\\java-project\\src\\main\\resources\\";
             BitmapEncoder.saveBitmap(chart,path+title, BitmapEncoder.BitmapFormat.JPG);
 //            BitmapEncoder.saveBitmap(chart,System.getProperty("user.dir")+"/Public/"+xlabel, BitmapEncoder.BitmapFormat.PNG);
         }
@@ -229,7 +372,7 @@ public class jobService {
                 "tr:nth-child(even){background-color: #f2f2f2}\n" +
                 "\n" +
                 "th {\n" +
-                "  background-color: #04AA6D;\n" +
+                "  background-color: #008080;\n" +
                 "  color: white;\n" +
                 "}\n" +
                 "</style>\n" +
@@ -257,7 +400,7 @@ public class jobService {
                 "        </style>\n" +
                 "    </head>\n" +
                 "    <body>\n" +
-                "        <div><img src=\"D:\\java2\\_javaProject\\src\\main\\resources\\charts\\MOST_POPULAR_AREAS.jpg\"></div>\n" +
+                "        <div><picture><img src=\"G:\\iti\\JAVA 4 ML\\java-project\\src\\main\\resources\\Most Wanted Skills.jpg\"/></picture></div>\n" +
                 //"        <div><img src=" + path + "></div>\n" +
                 "    </body>\n" +
                 "</html>";

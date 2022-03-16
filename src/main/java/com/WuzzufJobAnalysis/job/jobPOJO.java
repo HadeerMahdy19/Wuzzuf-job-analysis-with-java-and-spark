@@ -1,9 +1,9 @@
 package com.WuzzufJobAnalysis.job;
 
-import java.util.ArrayList;
+
 import java.io.Serializable;
 
-public class jobPOJO implements Serializable{
+public class jobPOJO implements Serializable {
     String Title;
     String Company;
     String Location;
