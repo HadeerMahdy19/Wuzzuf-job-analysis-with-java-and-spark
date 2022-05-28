@@ -15,4 +15,8 @@
 6. Run the application, Test your application from a REST client or on Browser
    Url: http://localhost:8080/spark-context/read-csv
 
-### That's it, Spark now returns output on an Enterprise web application!
+## Project team:
+* [**Alaa Sayed**](https://github.com/AlaaSayed164)
+* [**Maryam Mostafa**](https://github.com/Maryam-Mostafa)
+* [**Nader Khalil**](https://github.com/Nader-Khalil)
+* [**Hadeer Mahdy**](https://github.com/HadeerMahdy19)
